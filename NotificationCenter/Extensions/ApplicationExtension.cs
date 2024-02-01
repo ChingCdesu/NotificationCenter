@@ -1,8 +1,9 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.OAuth;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.IdentityModel.Tokens;
+using NotificationCenter.Authentication;
 using NotificationCenter.Storage;
 using NotificationCenter.Entities;
 using NotificationCenter.Enums;
@@ -97,33 +98,90 @@ public static class ApplicationExtension
         await asyncScope.DisposeAsync();
     }
 
-    public static void InitializeAuthentications(this WebApplication app)
+    public static void InitializeAuthentications(this WebApplicationBuilder builder)
     {
-        var asyncScope = app.Services.CreateAsyncScope();
-        var dbContext = asyncScope.ServiceProvider.GetRequiredService<DatabaseContext>();
-        
-        var schemeProvider = app.Services.GetRequiredService<IAuthenticationSchemeProvider>();
-        var oauthOptionsCache = app.Services.GetRequiredService<IOptionsMonitorCache<OAuthOptions>>();
-
-        var enableOAuth =
-            Convert.ToBoolean(dbContext.SystemSettings.FirstOrDefault(s => s.Key == "OAuthEnabled")?.Value ?? "false");
-
-        if (enableOAuth)
+        var configuration = builder.Configuration.GetSection("Authentication");
+        var authentication = builder.Services.AddAuthentication(options =>
         {
-            schemeProvider.AddScheme(new AuthenticationScheme(
-                OAuthDefaults.DisplayName,
-                OAuthDefaults.DisplayName,
-                typeof(OAuthHandler<>)
-            ));
-            oauthOptionsCache.TryAdd(OAuthDefaults.DisplayName, new OAuthOptions()
+            options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        });
+
+        authentication.AddCookie();
+        authentication.AddSecret();
+        
+        var googleEnabled = configuration.GetValue("Google:Enabled", false);
+        if (googleEnabled)
+        {
+            var googleClientId = configuration.GetValue("Google:ClientId", string.Empty);
+            if (string.IsNullOrEmpty(googleClientId))
             {
-                ClientId = dbContext.SystemSettings.FirstOrDefault(s => s.Key == "OAuthClientId")?.Value ?? string.Empty,
-                ClientSecret = dbContext.SystemSettings.FirstOrDefault(s => s.Key == "OAuthClientSecret")?.Value ?? string.Empty,
-                CallbackPath = "/oauth/callback",
-                AuthorizationEndpoint = dbContext.SystemSettings.FirstOrDefault(s => s.Key == "OAuthAuthorizationEndpoint")?.Value ?? string.Empty,
-                TokenEndpoint = dbContext.SystemSettings.FirstOrDefault(s => s.Key == "OAuthTokenEndpoint")?.Value ?? string.Empty,
-                UserInformationEndpoint = dbContext.SystemSettings.FirstOrDefault(s => s.Key == "OAuthUserInformationEndpoint")?.Value ?? string.Empty,
-                SaveTokens = true,
+                throw new ApplicationException("Google authentication is enabled but client id is not set.");
+            }
+            var googleClientSecret = configuration.GetValue("Google:ClientSecret", string.Empty);
+            if (string.IsNullOrEmpty(googleClientSecret))
+            {
+                throw new ApplicationException("Google authentication is enabled but client secret is not set.");
+            }
+            authentication.AddGoogle(options =>
+            {
+                options.ClientId = googleClientId;
+                options.ClientSecret = googleClientSecret;
+            });
+        }
+        
+        var oidcEnabled = configuration.GetValue("OpenIdConnect:Enabled", false);
+        if (oidcEnabled)
+        {
+            var oidcAuthority = configuration.GetValue("OpenIdConnect:Authority", string.Empty);
+            if (string.IsNullOrEmpty(oidcAuthority))
+            {
+                throw new ApplicationException("OpenIdConnect authentication is enabled but authority is not set.");
+            }
+            var oidcClientId = configuration.GetValue("OpenIdConnect:ClientId", string.Empty);
+            if (string.IsNullOrEmpty(oidcClientId))
+            {
+                throw new ApplicationException("OpenIdConnect authentication is enabled but client id is not set.");
+            }
+            var oidcClientSecret = configuration.GetValue("OpenIdConnect:ClientSecret", string.Empty);
+            if (string.IsNullOrEmpty(oidcClientSecret))
+            {
+                throw new ApplicationException("OpenIdConnect authentication is enabled but client secret is not set.");
+            }
+            authentication.AddOpenIdConnect("OpenIdConnect", options =>
+            {
+                options.Authority = oidcAuthority;
+                options.ClientId = oidcClientId;
+                options.ClientSecret = oidcClientSecret;
+                options.Configuration = new OpenIdConnectConfiguration
+                {
+                    AuthorizationEndpoint = $"{oidcAuthority}/auth",
+                    TokenEndpoint = $"{oidcAuthority}/token",
+                    UserInfoEndpoint = $"{oidcAuthority}/me",
+                };
+                options.CallbackPath = "/oidc/callback";
+                options.ResponseType = "code";
+                options.SaveTokens = true;
+                options.GetClaimsFromUserInfoEndpoint = true;
+                options.Scope.Add("openid");
+                options.Scope.Add("profile");
+                options.Scope.Add("email");
+                options.Scope.Add("offline_access");
+                options.ClaimActions.MapJsonKey("name", "name");
+                options.ClaimActions.MapJsonKey("email", "email");
+                options.ClaimActions.MapJsonKey("email_verified", "email_verified");
+                options.ClaimActions.MapJsonKey("sub", "sub");
+                options.ClaimActions.MapJsonKey("preferred_username", "preferred_username");
+                options.ClaimActions.MapJsonKey("given_name", "given_name");
+                options.ClaimActions.MapJsonKey("family_name", "family_name");
+                options.ClaimActions.MapJsonKey("locale", "locale");
+                options.ClaimActions.MapJsonKey("picture", "picture");
+                options.ClaimActions.MapJsonKey("updated_at", "updated_at");
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    NameClaimType = "name",
+                    RoleClaimType = "role",
+                };
+                
             });
         }
     }

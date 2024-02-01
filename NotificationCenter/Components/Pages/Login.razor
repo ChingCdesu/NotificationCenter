@@ -1,0 +1,90 @@
+@page "/Account/Login"
+@rendermode InteractiveServer
+@layout LoginLayout
+
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authorization
+@using NotificationCenter.Components.Layout
+@using Radzen
+
+@inject IConfiguration Configuration
+@inject IAuthenticationService AuthenticationService
+@inject IHttpContextAccessor HttpContextAccessor
+
+@attribute [AllowAnonymous]
+
+<div class="form-container">
+    <form class="login-form">
+        <h2>Welcome</h2>
+        <div class="input-group">
+            <RadzenFormField Text="Username or Email" Style="width: 100%">
+                <RadzenTextBox @bind-Value="UsernameOrEmail" Style="width: 100%"/>
+            </RadzenFormField>
+            <RadzenFormField Text="Password" Style="width: 100%">
+                <RadzenPassword @bind-Value="Password" Style="width: 100%"/>
+            </RadzenFormField>
+        </div>
+        <RadzenButton Text="Sign in" Click="@LocalLogin" ButtonStyle="ButtonStyle.Primary" Style="width: 100%;" class="rz-mt-3"/>
+        @if (googleEnabled || oidcEnabled)
+        {
+            <div class="divider rz-mt-3">
+                <span>or</span>
+            </div>
+        }
+        @if (googleEnabled)
+        {
+            <RadzenButton Click="@LoginWithGoogle">
+                <RadzenImage Path=""/>
+                <span class="rz-button-text">Sign in with Google</span>
+            </RadzenButton>
+        }
+        @if (oidcEnabled)
+        {
+            <RadzenButton Click="@LoginWithOpenIdConnect">
+                @if (!string.IsNullOrEmpty(oidcProviderIconUrl))
+                {
+                    <RadzenImage Path="@oidcProviderIconUrl"/>
+                }
+                <span class="rz-button-text">Sign in with @oidcProviderName</span>
+            </RadzenButton>
+        }
+
+    </form>
+</div>
+
+@code {
+    bool googleEnabled = false;
+    
+    bool oidcEnabled = false;
+    
+    string oidcProviderName = string.Empty;
+
+    string oidcProviderIconUrl = string.Empty;
+    
+    string UsernameOrEmail { get; set; } = string.Empty;
+
+    string Password { get; set; } = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        googleEnabled = Configuration.GetValue("Authentication:Google:Enabled", false);
+        oidcEnabled = Configuration.GetValue("Authentication:OpenIdConnect:Enabled", false);
+        oidcProviderName = Configuration.GetValue("Authentication:OpenIdConnect:Name", string.Empty)!;
+        oidcProviderIconUrl = Configuration.GetValue("Authentication:OpenIdConnect:IconUrl", string.Empty)!;
+    }
+
+    void LocalLogin()
+    {
+        Console.WriteLine("Local login");
+    }
+
+    void LoginWithGoogle()
+    {
+    }
+
+    private async Task LoginWithOpenIdConnect()
+    {
+        Console.WriteLine("ovo");
+        await HttpContextAccessor.HttpContext!.AuthenticateAsync("OpenIdConnect");
+    }
+}

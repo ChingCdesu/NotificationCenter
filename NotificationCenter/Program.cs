@@ -11,17 +11,11 @@ builder.Services
     .AddDbContext<DatabaseContext>()
     .AddSingleton<RedisCache>();
 
-builder.Services
-    .AddAuthentication(options =>
-    {
-        options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-        options.DefaultAuthenticateScheme = SecretDefaults.AuthenticationSchema;
-    })
-    .AddCookie()
-    .AddSecret();
+builder.InitializeAuthentications();
 
 // Add services to the container.
 builder.Services
+    .AddHttpContextAccessor()
     .AddRazorComponents()
     .AddInteractiveServerComponents();
 
@@ -31,7 +25,6 @@ builder.Services
 var app = builder.Build();
 
 await app.InitializeDatabase();
-app.InitializeAuthentications();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

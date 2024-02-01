@@ -1,0 +1,32 @@
+.form-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    justify-content: center;
+    align-items: center;
+}
+
+.login-form {
+    width: 40%;
+    min-width: 384px;
+}
+
+.login-form h2 {
+    text-align: center;
+}
+
+.divider {
+    display: flex;
+    align-items: center;
+}
+
+.divider::before, .divider::after {
+    flex: 1;
+    content: '';
+    padding: 1px;
+    background-color: black;
+}
+
+.divider span {
+    padding: 0 8px;
+}
