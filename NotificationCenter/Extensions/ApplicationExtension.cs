@@ -137,6 +137,21 @@ public static class ApplicationExtension
             {
                 throw new ApplicationException("OpenIdConnect authentication is enabled but authority is not set.");
             }
+            var oidcAuthorizeEndpoint = configuration.GetValue("OpenIdConnect:AuthorizeEndpoint", string.Empty);
+            if (string.IsNullOrEmpty(oidcAuthorizeEndpoint))
+            {
+                throw new ApplicationException("OpenIdConnect authentication is enabled but authorize endpoint is not set.");
+            }
+            var oidcTokenEndpoint = configuration.GetValue("OpenIdConnect:TokenEndpoint", string.Empty);
+            if (string.IsNullOrEmpty(oidcTokenEndpoint))
+            {
+                throw new ApplicationException("OpenIdConnect authentication is enabled but token endpoint is not set.");
+            }
+            var oidcUserInfoEndpoint = configuration.GetValue("OpenIdConnect:UserInfoEndpoint", string.Empty);
+            if (string.IsNullOrEmpty(oidcUserInfoEndpoint))
+            {
+                throw new ApplicationException("OpenIdConnect authentication is enabled but user info endpoint is not set.");
+            }
             var oidcClientId = configuration.GetValue("OpenIdConnect:ClientId", string.Empty);
             if (string.IsNullOrEmpty(oidcClientId))
             {
@@ -154,9 +169,9 @@ public static class ApplicationExtension
                 options.ClientSecret = oidcClientSecret;
                 options.Configuration = new OpenIdConnectConfiguration
                 {
-                    AuthorizationEndpoint = $"{oidcAuthority}/auth",
-                    TokenEndpoint = $"{oidcAuthority}/token",
-                    UserInfoEndpoint = $"{oidcAuthority}/me",
+                    AuthorizationEndpoint = oidcAuthorizeEndpoint,
+                    TokenEndpoint = oidcTokenEndpoint,
+                    UserInfoEndpoint = oidcUserInfoEndpoint,
                 };
                 options.CallbackPath = "/oidc/callback";
                 options.ResponseType = "code";
@@ -165,7 +180,6 @@ public static class ApplicationExtension
                 options.Scope.Add("openid");
                 options.Scope.Add("profile");
                 options.Scope.Add("email");
-                options.Scope.Add("offline_access");
                 options.ClaimActions.MapJsonKey("name", "name");
                 options.ClaimActions.MapJsonKey("email", "email");
                 options.ClaimActions.MapJsonKey("email_verified", "email_verified");
